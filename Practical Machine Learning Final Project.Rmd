@@ -1,0 +1,83 @@
+---
+title: "Practical Machine Learning Final Project"
+author: "Ross"
+date: "July 12, 2018"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Introduction
+In this project, we use data collected from the motion detection devices on FitBit etc. to predict the motion being undertaken by the wearers of those devices. The training data includes both the measurements and a factor varible identify the motion being undertaken during the measurements. The Test data include measurements but no identification of the motion, which is to be predicted from the model. After cleaning and partitioning the training data, we develop a random forest model with 99% accuracy and then apply it to the Test data set.
+
+##Get the needed packages
+
+```{r get packages, message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+
+```
+
+## Get the Data
+
+First, download the data and bring it into R.
+
+```{r download data}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = "pml-training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "pml-testing.csv")
+df_training <- read.csv("~/pml-training.csv", na.strings=c("NA",""))
+df_testing <- read.csv("~/pml-testing.csv", na.strings=c("NA",""))
+```
+
+## Clean the Data
+
+A visual inspection shows that many of the rows have a lot of NAs or are factors.  We clean both the training data and the test data by removing rows which have more the 50% NAs and the first 7 rows (which are labeling and are not used by the model). 
+
+```{r data cleaning, }
+df_training2 <- df_training[, -which(colMeans(is.na(df_training)) > 0.5)]
+df_training3 <- df_training2[, -c(1:7)]
+df_testing2 <- df_testing[, -which(colMeans(is.na(df_testing)) > 0.5)]
+df_testing3 <- df_testing2[, -c(1:7)]
+```
+
+###Partion training Data 
+Next, partition the training data into a training set and a cross validation set. The cross validation set will be used to guage the accuracy of the model before applying it to the test data upon which we want to make a prediction.
+
+```{r }
+set.seed(688)
+inTrain <- createDataPartition(y = df_training3$classe, p = 0.7, list = FALSE)
+Train <- df_training3[inTrain, ]
+CrossEval <- df_training3[-inTrain, ]
+```
+
+###Fit a Random Forest Model
+Now we'll fit a random forest model to the Train set.
+
+```{r fit the model, cache=TRUE}
+trControl <- trainControl(method = "cv", number = 2)
+Fit <- train(classe ~ ., data = Train, method="rf", prox = TRUE, trControl = trControl)
+```
+
+Let's use the CrossEval partition to see if the model predicts accurately. 
+The Fit model is 1.2 Gb and took 30 minutes to run, so it better.
+
+```{r predict on CrossEval}
+pred <- predict(Fit, newdata = CrossEval)
+confusionMatrix(pred, reference = CrossEval$classe)
+```
+
+The Confusion Matrix shows that the Fit mode has an accuracy of more than 99%, so we'll stop there and use the Fit model to predict the movements in the test data.
+
+```{r prediction on Test data}
+Results <- predict(Fit, newdata = df_testing3)
+Results
+```
+
+###Conclusion
+Using the random forest function we were able to develop a model with 99% accuracy.
+
+
+
